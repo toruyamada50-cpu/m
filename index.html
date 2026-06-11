@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>わり算タイムアタック！</title>
+  <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --primary: #FF6B6B;
+      --secondary: #4ECDC4;
+      --bg: #F7FFF7;
+      --text: #2D3047;
+      --secret: #9B5DE5;
+    }
+    body {
+      font-family: 'Yusei Magic', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .app-container {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .screen {
+      display: none;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      padding: 2% 5%;
+      animation: fadeIn 0.4s ease-in-out;
+      text-align: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background-color: var(--bg);
+    }
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    h1 {
+      color: var(--primary);
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      text-shadow: 2px 2px 0px #FFE66D;
+      margin: 0 0 15px 0;
+    }
+    
+    .btn {
+      font-family: 'Yusei Magic', sans-serif;
+      font-size: clamp(1rem, 2.5vw, 1.6rem);
+      padding: 10px 25px;
+      margin: 8px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      color: var(--text);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .btn-beginner { background-color: #A8E6CF; box-shadow: 0 5px 0 #7DCCAF; }
+    .btn-intermediate { background-color: #FFD3B6; box-shadow: 0 5px 0 #E5B390; }
+    .btn-advanced { background-color: #FF8A8A; color: white; box-shadow: 0 5px 0 #E06868; }
+    .btn-action { background-color: var(--secondary); color: white; box-shadow: 0 5px 0 #3AB8B0; }
+    .btn-secret { background-color: var(--secret); color: white; box-shadow: 0 5px 0 #7A42BD; display: none; }
+    .btn:active { transform: translateY(5px); box-shadow: 0 0 0 transparent !important; }
+
+    .secret-locked {
+      font-size: clamp(0.9rem, 2vw, 1.2rem);
+      color: #888;
+      background-color: #eee;
+      border: 2px dashed #ccc;
+      border-radius: 15px;
+      padding: 10px 20px;
+      margin: 8px auto;
+      display: inline-block;
+    }
+
+    .game-header {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .game-stats {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .game-controls {
+      display: flex;
+      gap: 10px;
+    }
+    .control-btn {
+      font-family: 'Yusei Magic', sans-serif;
+      font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+      padding: 5px 15px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      background: white;
+      cursor: pointer;
+      color: #555;
+    }
+    .control-btn:active { background: #eee; }
+    
+    .lives { color: #FF6B6B; letter-spacing: 2px; }
+    
+    .game-content {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+    }
+    .question-area {
+      flex: 1;
+      font-size: clamp(2.5rem, 6vw, 5rem);
+      font-weight: bold;
+      letter-spacing: 5px;
+      text-align: center;
+      position: relative;
+    }
+    .combo-text {
+      position: absolute;
+      top: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      color: #FF9F1C;
+      text-shadow: 2px 2px 0px white;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .combo-text.active {
+      opacity: 1;
+      transform: translateX(-50%) scale(1.2) translateY(-10px);
+      animation: pulse 0.5s infinite alternate;
+    }
+    
+    .numpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 45%;
+      max-width: 350px;
+    }
+    .num-btn {
+      font-family: 'Yusei Magic', sans-serif;
+      font-size: clamp(1.5rem, 3vw, 2.5rem);
+      background-color: white;
+      border: 3px solid #ccc;
+      border-radius: 15px;
+      padding: 12px 0;
+      cursor: pointer;
+      color: var(--text);
+      box-shadow: 0 4px 0 #ccc;
+      transition: all 0.1s;
+    }
+    .num-btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; }
+
+    .ranking-tabs { display: flex; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; gap: 5px; }
+    .tab { font-family: 'Yusei Magic', sans-serif; font-size: 1rem; padding: 5px 15px; border: 2px solid #ccc; border-radius: 10px; background: white; cursor: pointer; }
+    .tab.active { background-color: var(--secondary); color: white; border-color: var(--secondary); }
+    .ranking-list { width: 90%; max-height: 50vh; overflow-y: auto; border-collapse: collapse; font-size: clamp(0.9rem, 1.5vw, 1.1rem); background: white; }
+    .ranking-list th, .ranking-list td { border: 2px dashed #ddd; padding: 5px; }
+    .ranking-list th { background-color: #FFF2CD; position: sticky; top: 0; }
+
+    #capture-area {
+      background-color: var(--bg);
+      padding: 10px 20px;
+      border-radius: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .rank-title {
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      color: var(--secret);
+      margin: 10px 0;
+      text-shadow: 1px 1px 0px white;
+    }
+    .next-goal {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: #666;
+      background: #eee;
+      padding: 5px 15px;
+      border-radius: 20px;
+    }
+    .new-record-badge {
+      display: none;
+      color: white;
+      background-color: #FF6B6B;
+      padding: 5px 15px;
+      border-radius: 30px;
+      font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+      font-weight: bold;
+      transform: rotate(-10deg);
+      animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pop { 0% { transform: scale(0) rotate(-10deg); } 100% { transform: scale(1) rotate(-10deg); } }
+    @keyframes pulse { from { transform: translateX(-50%) scale(1.1); } to { transform: translateX(-50%) scale(1.3); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+    .wrong { animation: shake 0.3s; color: red; }
+    .correct-mark {
+      position: absolute;
+      font-size: 12rem;
+      color: rgba(255, 0, 0, 0.5);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  
+  <div id="start-screen" class="screen active">
+    <h1>わり算タイムアタック<br>🔥10連発🔥</h1>
+    <p style="font-size: clamp(0.9rem, 2vw, 1.2rem); margin-bottom: 5px;">商（こたえ）は1〜9のどれか！ 5回間違えるとゲームオーバー💀</p>
+    <div>
+      <button class="btn btn-beginner" onclick="startGame('初級')">初級 (2桁÷1桁)</button>
+      <button class="btn btn-intermediate" onclick="startGame('中級')">中級 (2桁÷2桁)</button>
+      <button class="btn btn-advanced" onclick="startGame('上級')">上級 (3桁÷2桁)</button>
+    </div>
+    
+    <div style="margin-top: 10px;">
+      <div id="secret-locked" class="secret-locked">
+        🔒 ？？？<br>
+        <span style="font-size: 0.8rem;">(初級・中級・上級をすべて30秒以内でクリアすると…？)</span>
+      </div>
+      <button id="btn-secret" class="btn btn-secret" onclick="startGame('シークレット')">㊙️ シークレット (小数÷小数)</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <button class="btn btn-action" onclick="showRanking()">📊 自分の記録を見る</button>
+    </div>
+  </div>
+
+  <div id="game-screen" class="screen">
+    <div class="game-header">
+      <div class="game-stats">
+        <span id="progress">1 / 10 問</span>
+        <span id="timer">0.0 秒</span>
+        <span class="lives" id="lives-display">❤️❤️❤️❤️❤️</span>
+      </div>
+      <div class="game-controls">
+        <button class="control-btn" onclick="retryGame()">🔄 最初からやり直す</button>
+        <button class="control-btn" onclick="initStartScreen()">🏠 トップにもどる</button>
+      </div>
+    </div>
+    
+    <div class="game-content">
+      <div class="question-area">
+        <div id="combo-display" class="combo-text">2 COMBO🔥</div>
+        <div id="question">123 ÷ 45 =</div>
+      </div>
+      <div class="numpad">
+        <button class="num-btn" onclick="checkAnswer(1)">1</button>
+        <button class="num-btn" onclick="checkAnswer(2)">2</button>
+        <button class="num-btn" onclick="checkAnswer(3)">3</button>
+        <button class="num-btn" onclick="checkAnswer(4)">4</button>
+        <button class="num-btn" onclick="checkAnswer(5)">5</button>
+        <button class="num-btn" onclick="checkAnswer(6)">6</button>
+        <button class="num-btn" onclick="checkAnswer(7)">7</button>
+        <button class="num-btn" onclick="checkAnswer(8)">8</button>
+        <button class="num-btn" onclick="checkAnswer(9)">9</button>
+      </div>
+    </div>
+    <div class="correct-mark" id="correct-mark">〇</div>
+  </div>
+
+  <div id="gameover-screen" class="screen">
+    <h1 style="color: #555; font-size: clamp(2.5rem, 5vw, 4rem);">ゲームオーバー💀</h1>
+    <p style="font-size: clamp(1rem, 2vw, 1.5rem);">5回間違えてしまった！もっと集中してひらめこう！</p>
+    <div style="margin-top: 20px;">
+      <button class="btn btn-action" onclick="retryGame()">🔄 もう一度挑戦する</button>
+      <button class="btn btn-beginner" onclick="initStartScreen()">トップへもどる</button>
+    </div>
+  </div>
+
+  <div id="result-screen" class="screen">
+    <div id="capture-area">
+      <h1 style="margin-bottom: 5px;">クリア！🎉</h1>
+      <div id="new-record-badge" class="new-record-badge">✨ 新記録達成 ✨</div>
+      <p style="font-size: clamp(1.2rem, 2vw, 1.5rem); margin: 5px 0;"><span id="result-level"></span>コース</p>
+      <p style="font-size: clamp(3rem, 6vw, 4rem); font-weight: bold; color: var(--primary); margin: 0;">
+        <span id="final-time"></span> 秒
+      </p>
+      <div id="rank-display" class="rank-title">称号</div>
+      <div id="next-goal" class="next-goal">次の目標</div>
+    </div>
+    <div style="margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+      <button id="btn-save-image" class="btn btn-action" style="display:none;" onclick="saveAsImage()">📷 画像で保存</button>
+      <button class="btn btn-beginner" onclick="retryGame()">🔄 同じコースをやり直す</button>
+      <button class="btn btn-beginner" onclick="initStartScreen()">🏠 トップへもどる</button>
+    </div>
+  </div>
+
+  <div id="ranking-screen" class="screen">
+    <h1>マイ記録ノート</h1>
+    <div class="ranking-tabs">
+      <button class="tab" id="tab-初級" onclick="loadHistory('初級')">初級</button>
+      <button class="tab" id="tab-中級" onclick="loadHistory('中級')">中級</button>
+      <button class="tab" id="tab-上級" onclick="loadHistory('上級')">上級</button>
+      <button class="tab" id="tab-シークレット" style="display:none;" onclick="loadHistory('シークレット')">㊙️ シークレット</button>
+    </div>
+    <div style="width: 100%; display: flex; justify-content: center; flex: 1; overflow: hidden; margin-top: 10px;">
+      <table class="ranking-list" id="history-table"></table>
+    </div>
+    <div style="margin-top: 10px;">
+      <button class="btn btn-beginner" onclick="initStartScreen()">トップへもどる</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // 変更点①：問題数を10問に
+  const TOTAL_QUESTIONS = 10;
+  const MAX_LIVES = 5;
+  const STORAGE_KEY = 'wariZanHistory';
+  // 変更点②：シークレット解放条件を30秒に
+  const SECRET_UNLOCK_TIME = 30.0; 
+
+  let currentLevel = '';
+  let currentQuestionIndex = 0;
+  let startTime = 0;
+  let timerInterval;
+  let currentAnswer = 0;
+  let lives = MAX_LIVES;
+  let combo = 0;
+
+  window.onload = initStartScreen;
+
+  function initStartScreen() {
+    clearInterval(timerInterval);
+    showScreen('start-screen');
+    checkSecretUnlock();
+  }
+
+  function checkSecretUnlock() {
+    let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    let isUnlocked = true;
+    const requiredLevels = ['初級', '中級', '上級'];
+
+    for (let level of requiredLevels) {
+      let records = history[level] || [];
+      if (records.length === 0) {
+        isUnlocked = false; 
+        break;
+      }
+      const bestTime = Math.min(...records.map(r => r.time));
+      if (bestTime > SECRET_UNLOCK_TIME) {
+        isUnlocked = false; 
+        break;
+      }
+    }
+
+    const lockedDiv = document.getElementById('secret-locked');
+    const secretBtn = document.getElementById('btn-secret');
+    const secretTab = document.getElementById('tab-シークレット');
+    
+    if (isUnlocked) {
+      lockedDiv.style.display = 'none';
+      secretBtn.style.display = 'inline-block';
+      secretTab.style.display = 'inline-block';
+    } else {
+      lockedDiv.style.display = 'inline-block';
+      secretBtn.style.display = 'none';
+      secretTab.style.display = 'none';
+    }
+  }
+
+  function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+  }
+
+  function startGame(level) {
+    clearInterval(timerInterval);
+    currentLevel = level;
+    currentQuestionIndex = 0;
+    lives = MAX_LIVES;
+    combo = 0;
+    updateLivesUI();
+    updateComboUI();
+    
+    showScreen('game-screen');
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 100);
+    nextQuestion();
+  }
+
+  function retryGame() {
+    if (currentLevel) {
+      startGame(currentLevel);
+    } else {
+      initStartScreen();
+    }
+  }
+
+  function updateTimer() {
+    const elapsed = (Date.now() - startTime) / 1000;
+    document.getElementById('timer').innerText = elapsed.toFixed(1) + ' 秒';
+  }
+
+  function updateLivesUI() {
+    let hearts = '❤️'.repeat(lives) + '🖤'.repeat(MAX_LIVES - lives);
+    document.getElementById('lives-display').innerText = hearts;
+  }
+
+  function updateComboUI() {
+    const comboDiv = document.getElementById('combo-display');
+    if (combo >= 2) {
+      comboDiv.innerText = `${combo} COMBO🔥`;
+      comboDiv.classList.add('active');
+    } else {
+      comboDiv.classList.remove('active');
+    }
+  }
+
+  function generateQuestion(level) {
+    let quotient, divisor, dividend;
+    let divisorText, dividendText;
+
+    if (level === '初級') {
+      do {
+        divisor = Math.floor(Math.random() * 8) + 2; 
+        quotient = Math.floor(Math.random() * 8) + 2; 
+        dividend = divisor * quotient;
+      } while (dividend < 10); 
+      
+      divisorText = divisor;
+      dividendText = dividend;
+
+    } else if (level === '中級') {
+      do {
+        quotient = Math.floor(Math.random() * 8) + 2; 
+        divisor = Math.floor(Math.random() * 90) + 10; 
+        dividend = divisor * quotient;
+      } while (dividend >= 100); 
+      
+      divisorText = divisor;
+      dividendText = dividend;
+
+    } else if (level === '上級') {
+      do {
+        quotient = Math.floor(Math.random() * 8) + 2; 
+        divisor = Math.floor(Math.random() * 90) + 10; 
+        dividend = divisor * quotient;
+      } while (dividend < 100); 
+      
+      divisorText = divisor;
+      dividendText = dividend;
+
+    } else if (level === 'シークレット') {
+      quotient = Math.floor(Math.random() * 8) + 2; 
+      const divInt = Math.floor(Math.random() * 89) + 11; 
+      const dividendInt = divInt * quotient;
+      divisorText = (divInt / 10).toFixed(1);
+      dividendText = (dividendInt / 10).toFixed(1);
+    }
+    
+    return { dividendText, divisorText, quotient };
+  }
+
+  function nextQuestion() {
+    currentQuestionIndex++;
+    if (currentQuestionIndex > TOTAL_QUESTIONS) {
+      endGame();
+      return;
+    }
+    // 変更点③：10問中の何問目かを表示
+    document.getElementById('progress').innerText = `${currentQuestionIndex} / ${TOTAL_QUESTIONS} 問`;
+    const q = generateQuestion(currentLevel);
+    currentAnswer = q.quotient;
+    document.getElementById('question').innerText = `${q.dividendText} ÷ ${q.divisorText} =`;
+    document.getElementById('question').classList.remove('wrong');
+  }
+
+  function checkAnswer(selectedNumber) {
+    if (selectedNumber === currentAnswer) {
+      combo++;
+      updateComboUI();
+      const mark = document.getElementById('correct-mark');
+      mark.style.display = 'block';
+      setTimeout(() => mark.style.display = 'none', 150);
+      nextQuestion();
+    } else {
+      combo = 0;
+      updateComboUI();
+      lives--;
+      updateLivesUI();
+      
+      const qDiv = document.getElementById('question');
+      qDiv.classList.remove('wrong');
+      void qDiv.offsetWidth; 
+      qDiv.classList.add('wrong');
+
+      if (lives <= 0) {
+        clearInterval(timerInterval);
+        setTimeout(() => showScreen('gameover-screen'), 300);
+      }
+    }
+  }
+
+  // 変更点④：10問用に称号の基準タイムを調整
+  function getRankInfo(time) {
+    if (time < 10.0) return { title: "👑 わり算神 👑", next: "君はもう無敵だ！" };
+    if (time < 15.0) return { title: "🌟 わり算マスター", next: "10秒未満で『わり算神』！" };
+    if (time < 20.0) return { title: "💪 わり算プロ", next: "15秒未満で『わり算マスター』！" };
+    if (time < 30.0) return { title: "🏃 スピードスター", next: "20秒未満で『わり算プロ』！" };
+    return { title: "👍 チャレンジャー", next: "30秒未満で『スピードスター』！" };
+  }
+
+  function endGame() {
+    clearInterval(timerInterval);
+    const finalTime = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
+    
+    document.getElementById('result-level').innerText = currentLevel;
+    document.getElementById('final-time').innerText = finalTime;
+    
+    const rankInfo = getRankInfo(finalTime);
+    document.getElementById('rank-display').innerText = rankInfo.title;
+    document.getElementById('next-goal').innerText = rankInfo.next;
+    
+    const isNewRecord = saveHistoryAndCheckRecord(currentLevel, finalTime);
+    const badge = document.getElementById('new-record-badge');
+    const saveBtn = document.getElementById('btn-save-image');
+    
+    if (isNewRecord) {
+      badge.style.display = 'block';
+      saveBtn.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+      saveBtn.style.display = 'none';
+    }
+    
+    showScreen('result-screen');
+  }
+
+  function saveHistoryAndCheckRecord(level, time) {
+    let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    if (!history[level]) history[level] = [];
+    
+    let bestTime = Infinity;
+    if (history[level].length > 0) {
+      bestTime = Math.min(...history[level].map(r => r.time));
+    }
+    
+    const isNewRecord = time < bestTime;
+    
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    
+    history[level].push({ date: dateStr, time: time });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    
+    return isNewRecord || history[level].length === 1;
+  }
+
+  function showRanking() {
+    showScreen('ranking-screen');
+    loadHistory('初級'); 
+  }
+
+  function loadHistory(level) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + level).classList.add('active');
+    
+    let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    let records = history[level] || [];
+    
+    const table = document.getElementById('history-table');
+    if (records.length === 0) {
+      table.innerHTML = '<tr><td style="text-align:center; padding: 20px;">まだ記録がないよ！<br>挑戦してみよう！</td></tr>';
+      return;
+    }
+    
+    records.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const bestTime = Math.min(...records.map(r => r.time));
+    
+    let html = '<tr><th>プレイ日時</th><th>タイム</th><th>称号</th></tr>';
+    records.forEach(r => {
+      const isBest = r.time === bestTime ? '<span style="color:#FF6B6B;">👑</span> ' : '';
+      const timeStyle = r.time === bestTime ? 'font-weight:bold; color:#FF6B6B;' : '';
+      const rankInfo = getRankInfo(r.time);
+      
+      html += `<tr>
+                <td style="white-space: nowrap;">${r.date}</td>
+                <td style="${timeStyle}; white-space: nowrap;">${isBest}${r.time.toFixed(1)} 秒</td>
+                <td style="font-size: 0.9rem; white-space: nowrap;">${rankInfo.title.split(' ')[1] || rankInfo.title}</td>
+               </tr>`;
+    });
+    table.innerHTML = html;
+  }
+
+  function saveAsImage() {
+    const captureArea = document.getElementById('capture-area');
+    html2canvas(captureArea, { backgroundColor: '#F7FFF7' }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `わり算記録_${currentLevel}_${document.getElementById('final-time').innerText}秒.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  }
+</script>
+
+</body>
+</html>
